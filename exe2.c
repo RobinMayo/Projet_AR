@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <pthread.h>
+#include <math.h>
 
 #define m 6
 #define SIZE_MAX 64  //m=6
@@ -22,7 +23,8 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* ---------- I. Initialisation du Systeme ----------- */
 void simulateur(void) {
-  int id[NB_PAIR], succ[NB_PAIR], resp[NB_PAIR], finger_rang[NB_PAIR][m],finger_id[NB_PAIR][m], rang_succ;
+	int id[NB_PAIR];
+  int succ[NB_PAIR], resp[NB_PAIR], finger_rang[NB_PAIR][m],finger_id[NB_PAIR][m], rang_succ;
   int searching_pair, deconnect_pair,deconnect_suc, deconnect_pre;
   int r, s, b,min;
   int i, j, k,tmp;
@@ -77,34 +79,49 @@ void simulateur(void) {
     printf("id[%d] : %d,\t succ : %d\tresp : %d\n", i, id[i], succ[i], resp[i]);
   }
 
+
+for(i=0; i<NB_PAIR;i++){      // 
+		for(j=0; j< m;j++){
+			finger_rang[i][j] = SIZE_MAX+1;
+			finger_id[i][j]= SIZE_MAX+1;
+	}
+}
   /* calculation de la table finger */
 	for(i=0; i<NB_PAIR;i++){      // 
 		for(j=0; j< m;j++){
 			int val;
-			val = (id[i]+pow(2,i))%SIZE_MAX;
+			val = (id[i]+(int)pow(2,j))%SIZE_MAX;
 			for(k=0;k<NB_PAIR;k++){
-				if(resp[k] <= val <= id[k])
-					finger_rang[i][j]=k+1;    //numero de rang
-					finger_id[i][j]=id[k]; 
-				else{
-					if(id[NB_PAIR-1] < val)	
-						finger_rang[i][j] = 1;
-						finger_id[i][j]=id[0];
-				}			
+				
+				if(resp[k] <= val ){
+					if(val<=id[k]){
+						finger_rang[i][j]=k+1;    //numero de rang
+						finger_id[i][j]=id[k]; 
+					}
+				}
 			}
+			if(finger_rang[i][j] == SIZE_MAX+1){
+				finger_rang[i][j] = 1;
+				finger_id[i][j]= id[0];
+			}
+				printf("i %d j%d finger_rang %d\n",i,j,finger_rang[i][j]);			
 		}
+			
 	}
   
-	min = id[0];
 
   /* Send to nodes : */
   for(i=1; i<=NB_PAIR; i++) {
     rang_succ = (i%NB_PAIR) + 1;
-    MPI_Send(&id[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    MPI_Send(&succ[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    MPI_Send(&resp[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+	MPI_Send(&id[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    MPI_Send(&succ[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    MPI_Send(&resp[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    //MPI_Send(&id[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    //MPI_Send(&succ[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+   // MPI_Send(&resp[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
     MPI_Send(&rang_succ, 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-	MPI_Send(&min, 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+	MPI_Send(finger_rang[i-1], m, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+	MPI_Send(finger_id[i-1], m, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
   }
 
   /* ----------- II. Recherche d une donnee : ----------- */
@@ -114,15 +131,14 @@ void simulateur(void) {
   printf("Searching pair : %d\n", searching_pair);
   MPI_Send(&var_to_find, 1, MPI_INT, searching_pair, TAGINIT, MPI_COMM_WORLD);
 
-
+}
 
 
 
 void pair(int rang) {
   int rang_succ, id, succ, resp;
   int key_to_find, deconnect;
-	int j,rangnext,idnext;
-	bool flag = true;
+	int j,rangnext,idnext,finger_rang[m],finger_id[m];
   MPI_Status status;
 
   /* Initialisation. */
@@ -130,26 +146,39 @@ void pair(int rang) {
   MPI_Recv(&succ, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
   MPI_Recv(&resp, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
   MPI_Recv(&rang_succ, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
-  MPI_Recv(&min, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
+  MPI_Recv(finger_rang, m, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
+  MPI_Recv(finger_id, m, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
+  
   pthread_mutex_lock(&mutex);
   pthread_mutex_unlock(&mutex);
 
   MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, TAGINIT, MPI_COMM_WORLD, &status);
-	while(flag){
+ 
 		for(j = m-1;j>=0;j--){
-			rangnext = finger_rang[rang-1][j];
-			idnext = finger_id[rang-1][j];
-			if(id<key_to_find<idnext){
-				if(j==0) {
-					flag = false;
-					printf("pair %d is responsible of key %d\n",succ,key_to_find); 
+			rangnext = finger_rang[j];
+			idnext = finger_id[j];
+			printf("id= %d,rang= %d,j= %d, rangnext= %d,idnext= %d\n",id,rang,j,rangnext,idnext);
+			
+			if(id < key_to_find ){
+				if(key_to_find< idnext){
+					printf("%d id %d ligne de la table avec rang %d et id %d\n",id,j,rangnext,idnext);
+					if(j==0) {
+						
+						printf("pair %d is responsible of key %d\n",succ,key_to_find); 
+					}
+				}else{
+					if(status.MPI_SOURCE != 0)printf("Peer %d search key %d.\n", status.MPI_SOURCE, key_to_find);
+					MPI_Send(&key_to_find, 1, MPI_INT, rangnext, TAGINIT, MPI_COMM_WORLD);
+					printf("j= %d, rangnext= %d \n",j,rangnext);
+					break;
 				}
 			}else{
+				if(status.MPI_SOURCE != 0)printf("Peer %d search key %d.\n", status.MPI_SOURCE, key_to_find);
+				MPI_Send(&key_to_find, 1, MPI_INT, rangnext, TAGINIT, MPI_COMM_WORLD);
+				printf("j= %d, rangnext= %d \n",j,rangnext);
 				break;
 			}	
 		}
-		if(flag)MPI_Send(&key_to_find, 1, MPI_INT, rangnext, TAGINIT, MPI_COMM_WORLD);
-	}
 
 }
 
