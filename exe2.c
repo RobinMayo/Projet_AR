@@ -149,8 +149,6 @@ void pair(int rang) {
   MPI_Recv(finger_rang, m, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
   MPI_Recv(finger_id, m, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
   
-  pthread_mutex_lock(&mutex);
-  pthread_mutex_unlock(&mutex);
 
   MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, TAGINIT, MPI_COMM_WORLD, &status);
  
