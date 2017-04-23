@@ -78,50 +78,19 @@ void simulateur(void) {
   for(i = 0; i < NB_PAIR; i++) {
     printf("id[%d] : %d,\t succ : %d\tresp : %d\n", i, id[i], succ[i], resp[i]);
   }
-
-
-for(i=0; i<NB_PAIR;i++){      // 
-		for(j=0; j< m;j++){
-			finger_rang[i][j] = SIZE_MAX+1;
-			finger_id[i][j]= SIZE_MAX+1;
-	}
-}
-  /* calculation de la table finger */
-	for(i=0; i<NB_PAIR;i++){      // 
-		for(j=0; j< m;j++){
-			int val;
-			val = (id[i]+(int)pow(2,j))%SIZE_MAX;
-			for(k=0;k<NB_PAIR;k++){
-				
-				if(resp[k] <= val ){
-					if(val<=id[k]){
-						finger_rang[i][j]=k+1;    //numero de rang
-						finger_id[i][j]=id[k]; 
-					}
-				}
-			}
-			if(finger_rang[i][j] == SIZE_MAX+1){
-				finger_rang[i][j] = 1;
-				finger_id[i][j]= id[0];
-			}
-				printf("i %d j%d finger_rang %d\n",i,j,finger_rang[i][j]);			
-		}
-			
-	}
   
 
   /* Send to nodes : */
   for(i=1; i<=NB_PAIR; i++) {
     rang_succ = (i%NB_PAIR) + 1;
-	MPI_Send(&id[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+	MPI_Send(id, NB_PAIR, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
     MPI_Send(&succ[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    MPI_Send(&resp[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    MPI_Send(resp, NB_PAIR, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
     //MPI_Send(&id[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
     //MPI_Send(&succ[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
    // MPI_Send(&resp[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
     MPI_Send(&rang_succ, 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-	MPI_Send(finger_rang[i-1], m, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-	MPI_Send(finger_id[i-1], m, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+	
   }
 
   /* ----------- II. Recherche d une donnee : ----------- */
@@ -136,32 +105,54 @@ for(i=0; i<NB_PAIR;i++){      //
 
 
 void pair(int rang) {
-  int rang_succ, id, succ, resp;
-  int key_to_find, deconnect;
-	int j,rangnext,idnext,finger_rang[m],finger_id[m];
+  int rang_succ, id[NB_PAIR], succ, resp[NB_PAIR];
+  int key_to_find, deconnect,rangid,rangresp;
+	int j,rangnext,idnext,finger_rang[m],finger_id[m],val[m];
   MPI_Status status;
 
   /* Initialisation. */
-  MPI_Recv(&id, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
+  MPI_Recv(id, NB_PAIR, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
   MPI_Recv(&succ, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
-  MPI_Recv(&resp, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
+  MPI_Recv(resp, NB_PAIR, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
   MPI_Recv(&rang_succ, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
-  MPI_Recv(finger_rang, m, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
-  MPI_Recv(finger_id, m, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD, NULL);
-  
-  pthread_mutex_lock(&mutex);
-  pthread_mutex_unlock(&mutex);
+  rangid = id[rang-1];
+	
+	rangresp = resp[rang-1];
+	for(j=0; j< m;j++){
+			finger_rang[j] = SIZE_MAX+1;
+			finger_id[j]= SIZE_MAX+1;
+	}
+	for(j=0; j< m;j++){
+			int k;
+			val[j] = (rangid+(int)pow(2,j))%SIZE_MAX;
+			printf("rangid= %d,rangresp= %d,val[j]= %d,j= %d\n",rangid,rangresp,val[j],j);
+			for(k=0;k<NB_PAIR;k++){
+				
+				if(resp[k] <= val[j] ){
+					if(val[j]<=id[k]){
+						finger_rang[j]=k+1;    //numero de rang
+						finger_id[j]=id[k]; 
+					}
+				}
+			}
+			if(finger_rang[j] == SIZE_MAX+1){
+				finger_rang[j] = 1;
+				finger_id[j]= id[0];
+			}
+				printf("rang %d j%d finger_rang %d\n",rang,j,finger_rang[j]);	
+	}
+	
 
   MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, TAGINIT, MPI_COMM_WORLD, &status);
  
 		for(j = m-1;j>=0;j--){
 			rangnext = finger_rang[j];
 			idnext = finger_id[j];
-			printf("id= %d,rang= %d,j= %d, rangnext= %d,idnext= %d\n",id,rang,j,rangnext,idnext);
+			printf("rangid= %d,rang= %d,j= %d, rangnext= %d,idnext= %d\n",rangid,rang,j,rangnext,idnext);
 			
-			if(id < key_to_find ){
+			if(rangid < key_to_find ){
 				if(key_to_find< idnext){
-					printf("%d id %d ligne de la table avec rang %d et id %d\n",id,j,rangnext,idnext);
+					printf("%d rangid %d ligne de la table avec rang %d et id %d\n",rangid,j,rangnext,idnext);
 					if(j==0) {
 						
 						printf("pair %d is responsible of key %d\n",succ,key_to_find); 
