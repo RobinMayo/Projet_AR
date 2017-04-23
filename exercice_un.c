@@ -78,12 +78,9 @@ void initialization(void) {
 	/* Send to nodes : */
 	for(i=0; i<NB_PAIR; i++) {
 		rang_succ = ((i+1)%NB_PAIR) + 1;
-		MPI_Send(&id[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    MPI_Send(&succ[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    MPI_Send(&resp[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    //cai MPI_Send(&id[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    //cai MPI_Send(&succ[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
-    //cai MPI_Send(&resp[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+     MPI_Send(&id[i], 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
+     MPI_Send(&succ[i], 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
+     MPI_Send(&resp[i], 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
 		MPI_Send(&rang_succ, 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
 	}
 	
@@ -111,8 +108,8 @@ void initialization(void) {
 	//printf("deconnect_peer : %d,\t", deconnect_peer);
 	//printf("deconnect_suc : %d,\t deconnect_pre : %d.\n", deconnect_suc, deconnect_pre);
 
-	r = resp[deconnect_peer-1];
-	//cai r = resp[deconnect_pre%NB_PAIR];  
+	//r = resp[deconnect_peer-1];
+	 r = resp[deconnect_pre%NB_PAIR];  
 	
 	printf("Peer %d deconnect.\n", deconnect_peer);
 	//printf("r : %d\n", r);
@@ -184,7 +181,7 @@ void pair(int rang) {
 	//printf("Peer %d is waiting.\n", rang);
 	
 	/* III. Gestion de la Dynamicite du Systeme : */
-//cai processus 0 envois que la value resp et tous les autre noeuds envois que son value resp aussi?
+
 	MPI_Recv(&deconnect, 1, MPI_INT, MPI_ANY_SOURCE, TAGDECONNECT, MPI_COMM_WORLD, &status);
 	searching_peer = status.MPI_TAG;
 	
