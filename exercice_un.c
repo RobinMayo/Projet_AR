@@ -130,7 +130,7 @@ void initialization(void) {
   reconnect_peer = deconnect_peer;
   reconnect_value = rand() % SIZE_MAX;
   printf("reconnect_value = %d.\n", reconnect_value);
-  
+	
 	puts("Init process (0) shut down.");
 }
 
