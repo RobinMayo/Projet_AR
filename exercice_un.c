@@ -105,13 +105,9 @@ void initialization(void) {
 	deconnect_suc = (deconnect_peer % NB_PAIR) + 1;
 	deconnect_pre = (deconnect_peer - 1) ? (deconnect_peer - 1) : NB_PAIR;
 	
-	//printf("deconnect_peer : %d,\t", deconnect_peer);
-	//printf("deconnect_suc : %d,\t deconnect_pre : %d.\n", deconnect_suc, deconnect_pre);
-	
 	r = resp[deconnect_pre%NB_PAIR];
 	
 	printf("Peer %d deconnect.\n", deconnect_peer);
-	//printf("r : %d\n", r);
 	MPI_Send(&r, 1, MPI_INT, deconnect_pre, TAGDECONNECT, MPI_COMM_WORLD);
 	
 	// Wall : to be shure every peer pass deconection on step 3.
@@ -136,20 +132,17 @@ void initialization(void) {
 	MPI_Recv(&searching_peer, 1, MPI_INT, MPI_ANY_SOURCE, TAGFIN, MPI_COMM_WORLD, NULL);
 	sleep(3);
 	printf("last peer before ex-deconnected peer = %d\n", searching_peer);
-	puts("***** PRINT *****");
+	puts("\n***** PRINT *****\n");
 	for(i=1; i<NB_PAIR+1; i++) {
 		rang_succ = (i%NB_PAIR)+1;
 		if(rang_succ == searching_peer) {
-			MPI_Send(&deconnect_peer, 1, MPI_INT, i, TAGFIN, MPI_COMM_WORLD);
-			//printf("rang_succ = %d\n", deconnect_peer);
+			MPI_Send(&deconnect_peer, 1, MPI_INT, i, reconnect_value, MPI_COMM_WORLD);
 		}
 		if(i == deconnect_peer) {
-			//rang_succ = (deconnect_peer+1)%NB_PAIR;
 			MPI_Send(&searching_peer, 1, MPI_INT, i, TAGFIN, MPI_COMM_WORLD);
 		}
 		else {
 			MPI_Send(&rang_succ, 1, MPI_INT, i, TAGFIN, MPI_COMM_WORLD);
-			//printf("rang_succ = %d\n", rang_succ);
 		}
 		sleep(1);
 	}
@@ -197,7 +190,6 @@ void pair(int rang) {
 	if(status.MPI_SOURCE == 0)
 		MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Send(&key_to_find, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD);
-	//printf("Peer %d is waiting.\n", rang);
 	
 	/* III. Gestion de la Dynamicite du Systeme : */
 	MPI_Recv(&deconnect, 1, MPI_INT, MPI_ANY_SOURCE, TAGDECONNECT, MPI_COMM_WORLD, &status);
@@ -205,7 +197,6 @@ void pair(int rang) {
 	
 	// Previous deconected peer.
 	if(status.MPI_SOURCE == 0) {
-		//printf("Previous deconected peer is : %d, it recive a message from %d.\n", rang, status.MPI_SOURCE);
 		MPI_Send(&deconnect, 1, MPI_INT, rang_succ, TAGDECONNECT, MPI_COMM_WORLD);
 		// Change the adress of the successor.
 		rang_succ = (rang_succ % NB_PAIR) + 1;
@@ -216,7 +207,6 @@ void pair(int rang) {
 	else {
 		// Deconected peer.
 		if(deconnect == resp) {
-			//printf("Deconected peer is : %d.\n", rang);
 			id = -1;
 			MPI_Send(&deconnect, 1, MPI_INT, rang_succ, TAGDECONNECT, MPI_COMM_WORLD);
 			rang_succ = -1;
@@ -228,7 +218,6 @@ void pair(int rang) {
 				deconnect = -1;
 				printf("peer %d : resp is %d, id is %d, succ is %d.\n", rang, resp, id, succ);
 				MPI_Send(&deconnect, 1, MPI_INT, rang_succ, TAGDECONNECT, MPI_COMM_WORLD);
-				//printf("id = %d,\t (rang-2)%NB_PAIR = %d", id, (rang-2)%NB_PAIR);
 				MPI_Send(&id, 1, MPI_INT, (rang-2)%NB_PAIR, TAGDECONNECT, MPI_COMM_WORLD);
 			}
 			else
@@ -239,19 +228,15 @@ void pair(int rang) {
 	// Wall : to be shure every peer pass deconection on step 3.
 	if(key_to_find == 100) {
 		MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		//printf("Peer %d recive a message from %d.\n", rang, status.MPI_SOURCE);
 		MPI_Send(&key_to_find, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD);
 	}
 	else
 		MPI_Send(&key_to_find, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD);
-	//printf("Peer %d is waiting.\n", rang);
 	key_to_find = 100;
 	MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	searching_peer = status.MPI_TAG;
-	//printf("***** Peer %d enter to deconnection step with a message from %d.\n", rang, status.MPI_SOURCE);
 	
 	if(status.MPI_TAG == TAGRECONNECT) {
-		//puts("status.MPI_TAG == TAGRECONNECT");
 		id = key_to_find;
 		MPI_Recv(&succ, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, NULL);
 		MPI_Recv(&resp, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, NULL);
@@ -269,7 +254,6 @@ void pair(int rang) {
 			if((key_to_find < id && key_to_find >= resp) ||
 				 (key_to_find < id && id < resp) ||
 				 (key_to_find >= resp && id < resp)) {
-				//printf("rang = %d, key_to_find = %d, id = %d, resp = %d.\n", rang, key_to_find, id, resp);
 				// For the peer who wants to be reconnected.
 				MPI_Send(&key_to_find, 1, MPI_INT, searching_peer, TAGRECONNECT, MPI_COMM_WORLD);
 				MPI_Send(&id, 1, MPI_INT, searching_peer, TAGRECONNECT, MPI_COMM_WORLD);
@@ -282,8 +266,6 @@ void pair(int rang) {
 			}
 			else {
 				printf("Request on peer : %d with id %d\n", rang, id);
-				//printf("Message recived from peer with id %d who want to be reconected. ", key_to_find);
-				//printf("Its id is %d. Its adress is %d. Rang_succ is %d.\n", id, searching_peer, rang_succ);
 				MPI_Send(&key_to_find, 1, MPI_INT, rang_succ, searching_peer, MPI_COMM_WORLD);
 			}
 		}
@@ -294,12 +276,11 @@ void pair(int rang) {
 		MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	}
 	
-	//printf("Peer %d is waiting.\n", rang);
-	
 	/* Final print : */
-	MPI_Recv(&rang_succ, 1, MPI_INT, 0, TAGFIN, MPI_COMM_WORLD, &status);
-	printf("resp : %d,\t id : %d,\t succ : %d\t\t(rang : %d)\t(rang_succ : %d)\n",
-				 resp, id, succ, rang, rang_succ);
+	MPI_Recv(&rang_succ, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	if(status.MPI_TAG != TAGFIN)
+		succ = status.MPI_TAG;
+	printf("resp : %d,\t id : %d,\t succ : %d\t\t(rang : %d)\n", resp, id, succ, rang);
 	
 	//printf("Peer %d shut down.\n", rang);
 }
