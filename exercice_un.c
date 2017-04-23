@@ -78,9 +78,12 @@ void initialization(void) {
 	/* Send to nodes : */
 	for(i=0; i<NB_PAIR; i++) {
 		rang_succ = ((i+1)%NB_PAIR) + 1;
-		MPI_Send(&id[i], 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
-		MPI_Send(&succ[i], 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
-		MPI_Send(&resp[i], 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
+		MPI_Send(&id[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    MPI_Send(&succ[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    MPI_Send(&resp[i-1], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    //cai MPI_Send(&id[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    //cai MPI_Send(&succ[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
+    //cai MPI_Send(&resp[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);
 		MPI_Send(&rang_succ, 1, MPI_INT, i+1, TAGINIT, MPI_COMM_WORLD);
 	}
 	
@@ -94,27 +97,28 @@ void initialization(void) {
 	sleep(1);
 	MPI_Send(&var_to_find, 1, MPI_INT, searching_peer, TAGINIT, MPI_COMM_WORLD);
 	
-	// Wall : to be shure every peer pass step 2.
+	// Wall : to be sure every peer pass step 2.
 	for(i = 0; i < NB_PAIR; i++)
 		MPI_Recv(&searching_peer, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, NULL);
 	
 	/* ----------- III. Gestion de la Dynamicite du Systeme : ----------- */
 	
 	puts("\n***** III. Gestion de la Dynamicite du Systeme : *****\n");
-	deconnect_peer = (rand() % NB_PAIR) + 1;    //1--NB_PAIR+1
+	deconnect_peer = (rand() % NB_PAIR) + 1;    //1--NB_PAIR
 	deconnect_suc = (deconnect_peer % NB_PAIR) + 1;
 	deconnect_pre = (deconnect_peer - 1) ? (deconnect_peer - 1) : NB_PAIR;
 	
 	//printf("deconnect_peer : %d,\t", deconnect_peer);
 	//printf("deconnect_suc : %d,\t deconnect_pre : %d.\n", deconnect_suc, deconnect_pre);
-	
-	r = resp[deconnect_pre%NB_PAIR];
+
+	r = resp[deconnect_peer-1];
+	//cai r = resp[deconnect_pre%NB_PAIR];  
 	
 	printf("Peer %d deconnect.\n", deconnect_peer);
 	//printf("r : %d\n", r);
 	MPI_Send(&r, 1, MPI_INT, deconnect_pre, TAGDECONNECT, MPI_COMM_WORLD);
 	
-	// Wall : to be shure every peer pass deconection on step 3.
+	// Wall : to be sure every peer pass deconection on step 3.
 	for(i = 0; i < NB_PAIR; i++)
 		MPI_Recv(&searching_peer, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, NULL);
 	
@@ -173,13 +177,14 @@ void pair(int rang) {
 		}
 	}
 	
-	// Wall : to be shure every peer pass step 2.
+	// Wall : to be sure every peer pass step 2.
 	if(status.MPI_SOURCE == 0)
 		MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	MPI_Send(&key_to_find, 1, MPI_INT, 0, TAGINIT, MPI_COMM_WORLD);
 	//printf("Peer %d is waiting.\n", rang);
 	
 	/* III. Gestion de la Dynamicite du Systeme : */
+//cai processus 0 envois que la value resp et tous les autre noeuds envois que son value resp aussi?
 	MPI_Recv(&deconnect, 1, MPI_INT, MPI_ANY_SOURCE, TAGDECONNECT, MPI_COMM_WORLD, &status);
 	searching_peer = status.MPI_TAG;
 	
@@ -216,7 +221,7 @@ void pair(int rang) {
 		}
 	}
 	
-	// Wall : to be shure every peer pass deconection on step 3.
+	// Wall : to be sure every peer pass deconection on step 3.
 	if(key_to_find == 100) {
 		//MPI_Recv(&key_to_find, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 		printf("Peer %d recive a message from %d.\n", rang, status.MPI_SOURCE);
